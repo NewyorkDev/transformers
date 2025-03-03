@@ -67,6 +67,9 @@ Prepare your training data in one of these formats:
 
 Place your data in the `learning/` directory. Sample data is already provided in this directory.
 
+pip install -r requirements.txt
+
+
 ### 7. Running Fine-tuning
 
 ```bash
