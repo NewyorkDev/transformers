@@ -1,9 +1,13 @@
 #!/bin/bash
 
 # Lambda Labs H100 Setup Script for Mistral Fine-tuning
-
 # Error handling
 set -e
+
+# Ensure /workspace exists and is writable
+echo "Ensuring /workspace exists and has correct permissions..."
+sudo mkdir -p /workspace
+sudo chown -R $(whoami):$(whoami) /workspace
 
 # Configuration
 EXP_NAME="mistral-finetune-$(date +%Y%m%d_%H%M%S)"
@@ -33,11 +37,11 @@ if [ ! -d "transformers" ]; then
     cd ..
 fi
 
-# Setup data transfer
+# Setup data transfer instructions
 echo "Please transfer your learning data to ${DATASET_DIR}"
 echo "You can use: scp -r ./learning/ ubuntu@<lambda-ip>:${DATASET_DIR}"
 
-# Training script
+# Training script creation
 cat > train.py << 'EOL'
 from transformers import (
     AutoModelForCausalLM,
