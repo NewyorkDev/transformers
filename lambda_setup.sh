@@ -1,5 +1,6 @@
 #!/bin/bash
 # Mistral Fine-tuning Setup Script (User-level, no sudo required)
+# This script sets up everything in your home directory and uses the model version 7B-Instruct-v0.3
 
 # Exit on any error
 set -e
@@ -14,7 +15,7 @@ DATASET_DIR="${BASE_DIR}/learning_data"
 VENV_DIR="${BASE_DIR}/venv"
 
 # -----------------------------
-# 1. Create local directories
+# 1. Create Local Directories
 # -----------------------------
 echo "Creating local directories under ${BASE_DIR}..."
 mkdir -p "${BASE_DIR}"
@@ -23,28 +24,28 @@ mkdir -p "${DATASET_DIR}"
 cd "${BASE_DIR}"
 
 # -----------------------------
-# 2. Create & Activate Virtual Env
+# 2. Create & Activate Virtual Environment
 # -----------------------------
-echo "Creating/activating virtual environment in ${VENV_DIR}..."
+echo "Creating and activating virtual environment in ${VENV_DIR}..."
 python3 -m venv "${VENV_DIR}"
 source "${VENV_DIR}/bin/activate"
 
 # -----------------------------
-# 3. Upgrade pip and install Python dependencies
+# 3. Upgrade pip and Install Python Dependencies
 # -----------------------------
 echo "Upgrading pip..."
 pip install --upgrade pip
 
 echo "Installing Python dependencies..."
-# Adjust Torch version as needed for your GPU/CUDA setup
+# Adjust the torch version if needed for your CUDA version.
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install transformers datasets accelerate bitsandbytes wandb
 
 # -----------------------------
-# 4. (Optional) Clone Transformers repo
+# 4. (Optional) Clone the Transformers Repository
 # -----------------------------
 if [ ! -d "transformers" ]; then
-    echo "Cloning Hugging Face Transformers repository..."
+    echo "Cloning the Hugging Face Transformers repository..."
     git clone https://github.com/huggingface/transformers.git
     cd transformers
     pip install -e .
@@ -52,7 +53,7 @@ if [ ! -d "transformers" ]; then
 fi
 
 # -----------------------------
-# 5. Create a training script (train.py)
+# 5. Create the Training Script (train.py)
 # -----------------------------
 cat > train.py << 'EOL'
 from transformers import (
@@ -67,12 +68,12 @@ import torch
 import os
 
 def main():
-    # Model configuration
+    # Model configuration: Using the Mistral-7B-Instruct-v0.3 model
     model_name = "mistralai/Mistral-7B-Instruct-v0.3"
     output_dir = os.getenv("OUTPUT_DIR", "./model_output")
     dataset_dir = os.getenv("DATASET_DIR", "./learning_data")
 
-    # Load model and tokenizer
+    # Load model and tokenizer with appropriate device mapping and data type
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
@@ -80,7 +81,7 @@ def main():
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Prepare dataset
+    # Prepare dataset: Assumes text files (*.txt) in the dataset directory
     dataset = load_dataset("text", data_files=f"{dataset_dir}/*.txt")
     
     def tokenize_function(examples):
@@ -116,7 +117,7 @@ def main():
     # Start training
     trainer.train()
     
-    # Save model
+    # Save the fine-tuned model and tokenizer
     trainer.save_model()
     tokenizer.save_pretrained(output_dir)
 
@@ -125,25 +126,28 @@ if __name__ == "__main__":
 EOL
 
 # -----------------------------
-# 6. Wrap-up instructions
+# 6. Wrap-Up Instructions
 # -----------------------------
 echo "-----------------------------------------------------------"
 echo "Setup complete!"
-echo "Your directories:"
-echo "  - Base dir:    ${BASE_DIR}"
-echo "  - Output dir:  ${OUTPUT_DIR}"
-echo "  - Dataset dir: ${DATASET_DIR}"
+echo ""
+echo "Your directories are as follows:"
+echo "  Base directory:   ${BASE_DIR}"
+echo "  Output directory: ${OUTPUT_DIR}"
+echo "  Dataset directory: ${DATASET_DIR}"
 echo ""
 echo "Next steps:"
-echo "1. Place your training data (TXT files) in: ${DATASET_DIR}"
-echo "   (e.g., cp /path/to/*.txt ${DATASET_DIR}/)"
+echo "1. Place your training data (plain text files, e.g. .txt) in:"
+echo "   ${DATASET_DIR}"
+echo "   For example, copy your text files using:"
+echo "      cp /path/to/your/files/*.txt ${DATASET_DIR}/"
 echo ""
-echo "2. Activate the virtual environment:"
-echo "   source ${VENV_DIR}/bin/activate"
+echo "2. Activate your virtual environment (if not already activated):"
+echo "      source ${VENV_DIR}/bin/activate"
 echo ""
-echo "3. Run the training script:"
-echo "   OUTPUT_DIR=${OUTPUT_DIR} DATASET_DIR=${DATASET_DIR} python train.py"
+echo "3. Run the training script by executing:"
+echo "      OUTPUT_DIR=${OUTPUT_DIR} DATASET_DIR=${DATASET_DIR} python train.py"
 echo ""
-echo "After training completes, you'll find the fine-tuned model in:"
-echo "   ${OUTPUT_DIR}"
+echo "After training completes, your fine-tuned model will be available in the output directory:"
+echo "      ${OUTPUT_DIR}"
 echo "-----------------------------------------------------------"
