@@ -1,47 +1,59 @@
 #!/bin/bash
+# Mistral Fine-tuning Setup Script (User-level, no sudo required)
 
-# Lambda Labs H100 Setup Script for Mistral Fine-tuning
-# Error handling
+# Exit on any error
 set -e
 
-# Ensure /workspace exists and is writable
-echo "Ensuring /workspace exists and has correct permissions..."
-sudo mkdir -p /workspace
-sudo chown -R $(whoami):$(whoami) /workspace
-
+# -----------------------------
 # Configuration
+# -----------------------------
 EXP_NAME="mistral-finetune-$(date +%Y%m%d_%H%M%S)"
-OUTPUT_DIR="/workspace/model_output/${EXP_NAME}"
-DATASET_DIR="/workspace/learning_data"
+BASE_DIR="$HOME/mistral_finetune"
+OUTPUT_DIR="${BASE_DIR}/model_output/${EXP_NAME}"
+DATASET_DIR="${BASE_DIR}/learning_data"
+VENV_DIR="${BASE_DIR}/venv"
 
-# System updates and basic dependencies
-echo "Installing system dependencies..."
-sudo apt-get update
-sudo apt-get install -y git wget curl python3-pip
-
-# Create workspace directories
+# -----------------------------
+# 1. Create local directories
+# -----------------------------
+echo "Creating local directories under ${BASE_DIR}..."
+mkdir -p "${BASE_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 mkdir -p "${DATASET_DIR}"
+cd "${BASE_DIR}"
 
-# Install Python dependencies
-echo "Installing Python dependencies..."
+# -----------------------------
+# 2. Create & Activate Virtual Env
+# -----------------------------
+echo "Creating/activating virtual environment in ${VENV_DIR}..."
+python3 -m venv "${VENV_DIR}"
+source "${VENV_DIR}/bin/activate"
+
+# -----------------------------
+# 3. Upgrade pip and install Python dependencies
+# -----------------------------
+echo "Upgrading pip..."
 pip install --upgrade pip
+
+echo "Installing Python dependencies..."
+# Adjust Torch version as needed for your GPU/CUDA setup
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install transformers datasets accelerate bitsandbytes wandb
 
-# Clone transformers repository (if needed)
+# -----------------------------
+# 4. (Optional) Clone Transformers repo
+# -----------------------------
 if [ ! -d "transformers" ]; then
+    echo "Cloning Hugging Face Transformers repository..."
     git clone https://github.com/huggingface/transformers.git
     cd transformers
     pip install -e .
     cd ..
 fi
 
-# Setup data transfer instructions
-echo "Please transfer your learning data to ${DATASET_DIR}"
-echo "You can use: scp -r ./learning/ ubuntu@<lambda-ip>:${DATASET_DIR}"
-
-# Training script creation
+# -----------------------------
+# 5. Create a training script (train.py)
+# -----------------------------
 cat > train.py << 'EOL'
 from transformers import (
     AutoModelForCausalLM,
@@ -56,7 +68,7 @@ import os
 
 def main():
     # Model configuration
-    model_name = "mistralai/Mistral-7B-v0.1"
+    model_name = "mistralai/Mistral-7B-Instruct-v0.3"
     output_dir = os.getenv("OUTPUT_DIR", "./model_output")
     dataset_dir = os.getenv("DATASET_DIR", "./learning_data")
 
@@ -112,21 +124,26 @@ if __name__ == "__main__":
     main()
 EOL
 
-# Instructions for running
-echo """
-Setup complete! Follow these steps to run the training:
-
-1. Transfer your data:
-   scp -r ./learning/ ubuntu@<lambda-ip>:${DATASET_DIR}
-
-2. Start training:
-   python3 train.py
-
-3. Monitor training:
-   tail -f ${OUTPUT_DIR}/trainer_log.txt
-
-4. After completion, download the model:
-   scp -r ubuntu@<lambda-ip>:${OUTPUT_DIR} ./
-
-Make sure to replace <lambda-ip> with your actual Lambda Labs instance IP.
-"""
+# -----------------------------
+# 6. Wrap-up instructions
+# -----------------------------
+echo "-----------------------------------------------------------"
+echo "Setup complete!"
+echo "Your directories:"
+echo "  - Base dir:    ${BASE_DIR}"
+echo "  - Output dir:  ${OUTPUT_DIR}"
+echo "  - Dataset dir: ${DATASET_DIR}"
+echo ""
+echo "Next steps:"
+echo "1. Place your training data (TXT files) in: ${DATASET_DIR}"
+echo "   (e.g., cp /path/to/*.txt ${DATASET_DIR}/)"
+echo ""
+echo "2. Activate the virtual environment:"
+echo "   source ${VENV_DIR}/bin/activate"
+echo ""
+echo "3. Run the training script:"
+echo "   OUTPUT_DIR=${OUTPUT_DIR} DATASET_DIR=${DATASET_DIR} python train.py"
+echo ""
+echo "After training completes, you'll find the fine-tuned model in:"
+echo "   ${OUTPUT_DIR}"
+echo "-----------------------------------------------------------"
